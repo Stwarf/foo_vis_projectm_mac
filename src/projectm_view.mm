@@ -14,6 +14,8 @@ static NSString* const ProjectMShuffleKey = @"foo_vis_projectm_mac.shuffle";
 static NSString* const ProjectMAutoRotateKey = @"foo_vis_projectm_mac.autoRotate";
 static NSString* const ProjectMRotationIntervalKey = @"foo_vis_projectm_mac.rotationInterval";
 static NSString* const ProjectMQualityKey = @"foo_vis_projectm_mac.quality";
+static NSString* const ProjectMEnabledKey = @"foo_vis_projectm_mac.enabled";
+static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startAtStartup";
 
 @interface ProjectMViewController (ProjectMPrivate)
 - (void)visualizerRenderTick;
@@ -22,11 +24,15 @@ static NSString* const ProjectMQualityKey = @"foo_vis_projectm_mac.quality";
 - (void)onNextPreset:(id)sender;
 - (void)onToggleShuffle:(id)sender;
 - (void)onToggleAutoRotate:(id)sender;
+- (void)onToggleEnabled:(id)sender;
 - (void)onFullscreen:(id)sender;
 - (BOOL)handleProjectMKeyEvent:(NSEvent*)event;
 - (void)showContextMenuForEvent:(NSEvent*)event view:(NSView*)view;
+- (void)syncRuntimeState;
 - (void)onMenuToggleShuffle:(id)sender;
 - (void)onMenuToggleAutoRotate:(id)sender;
+- (void)onMenuToggleEnabled:(id)sender;
+- (void)onStartupModeMenuItem:(id)sender;
 - (void)onQualityMenuItem:(id)sender;
 - (void)onIntervalMenuItem:(id)sender;
 - (void)restoreVisualizerFromFullscreen;
@@ -75,11 +81,13 @@ static NSString* const ProjectMQualityKey = @"foo_vis_projectm_mac.quality";
 @property(nonatomic) CVDisplayLinkRef displayLink;
 @property(nonatomic) projectm_handle projectM;
 @property(nonatomic) BOOL projectMReady;
+@property(nonatomic) BOOL visualizerEnabled;
 @property(nonatomic) NSInteger qualityLevel;
 @property(nonatomic, copy) NSString* pendingPresetPath;
 @property(nonatomic, copy) NSString* pendingTextureDirectory;
 @property(nonatomic, weak) ProjectMViewController* controller;
 - (void)setProjectMQualityLevel:(NSInteger)qualityLevel;
+- (void)setVisualizerEnabled:(BOOL)enabled;
 - (void)applyQualitySettings;
 @end
 
@@ -110,8 +118,10 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
                                             void* context) {
     ProjectMOpenGLView* view = (__bridge ProjectMOpenGLView*)context;
     dispatch_async(dispatch_get_main_queue(), ^{
-        [view.controller visualizerRenderTick];
-        [view setNeedsDisplay:YES];
+        if (view.visualizerEnabled) {
+            [view.controller visualizerRenderTick];
+            [view setNeedsDisplay:YES];
+        }
     });
     return kCVReturnSuccess;
 }
@@ -178,7 +188,9 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     CVDisplayLinkCreateWithActiveCGDisplays(&_displayLink);
     if (_displayLink != nullptr) {
         CVDisplayLinkSetOutputCallback(_displayLink, ProjectMDisplayLinkCallback, (__bridge void*)self);
-        CVDisplayLinkStart(_displayLink);
+        if (self.visualizerEnabled) {
+            CVDisplayLinkStart(_displayLink);
+        }
     }
 }
 
@@ -196,6 +208,18 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
         [[self openGLContext] makeCurrentContext];
         [self applyQualitySettings];
     }
+}
+
+- (void)setVisualizerEnabled:(BOOL)enabled {
+    _visualizerEnabled = enabled;
+    if (_displayLink != nullptr) {
+        if (enabled && !CVDisplayLinkIsRunning(_displayLink)) {
+            CVDisplayLinkStart(_displayLink);
+        } else if (!enabled && CVDisplayLinkIsRunning(_displayLink)) {
+            CVDisplayLinkStop(_displayLink);
+        }
+    }
+    [self setNeedsDisplay:YES];
 }
 
 - (void)applyQualitySettings {
@@ -242,7 +266,10 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     (void)dirtyRect;
     [[self openGLContext] makeCurrentContext];
 
-    if (self.projectMReady) {
+    if (!self.visualizerEnabled) {
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+    } else if (self.projectMReady) {
         std::vector<float> samples;
         {
             std::lock_guard<std::mutex> lock(_audioMutex);
@@ -315,6 +342,8 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     NSInteger _presetIndex;
     BOOL _shuffle;
     BOOL _autoRotate;
+    BOOL _enabled;
+    BOOL _startAtStartup;
     NSInteger _qualityLevel;
     NSTimeInterval _lastPresetSwitch;
     NSTimer* _rotationTimer;
@@ -322,6 +351,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     NSButton* _nextButton;
     NSButton* _choosePresetsButton;
     NSButton* _chooseTexturesButton;
+    NSButton* _enabledButton;
     NSButton* _shuffleButton;
     NSButton* _autoRotateButton;
     NSButton* _fullscreenButton;
@@ -338,6 +368,8 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     _presetIndex = NSNotFound;
     _shuffle = [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMShuffleKey];
     _autoRotate = [[NSUserDefaults standardUserDefaults] objectForKey:ProjectMAutoRotateKey] == nil ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMAutoRotateKey];
+    _startAtStartup = [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMStartAtStartupKey];
+    _enabled = _startAtStartup ? ([[NSUserDefaults standardUserDefaults] objectForKey:ProjectMEnabledKey] == nil ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMEnabledKey]) : NO;
     _qualityLevel = [[NSUserDefaults standardUserDefaults] objectForKey:ProjectMQualityKey] == nil ? 2 : [[NSUserDefaults standardUserDefaults] integerForKey:ProjectMQualityKey];
     _qualityLevel = MAX(0, MIN(3, _qualityLevel));
     _lastPresetSwitch = [NSDate timeIntervalSinceReferenceDate];
@@ -354,6 +386,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     ProjectMOpenGLView* glView = [[ProjectMOpenGLView alloc] initWithFrame:NSMakeRect(0, 36, 760, 394)];
     _projectMView = glView;
     glView.controller = self;
+    [glView setVisualizerEnabled:_enabled];
     [glView setProjectMQualityLevel:_qualityLevel];
     glView.translatesAutoresizingMaskIntoConstraints = NO;
 
@@ -361,9 +394,12 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     _nextButton = [self buttonWithTitle:@"Next" action:@selector(onNextPreset:)];
     _choosePresetsButton = [self buttonWithTitle:@"Presets" action:@selector(onChoosePresetFolder:)];
     _chooseTexturesButton = [self buttonWithTitle:@"Textures" action:@selector(onChooseTextureFolder:)];
+    _enabledButton = [self buttonWithTitle:@"On" action:@selector(onToggleEnabled:)];
     _shuffleButton = [self buttonWithTitle:@"Shuffle" action:@selector(onToggleShuffle:)];
     _autoRotateButton = [self buttonWithTitle:@"Auto" action:@selector(onToggleAutoRotate:)];
     _fullscreenButton = [self buttonWithTitle:@"Full" action:@selector(onFullscreen:)];
+    _enabledButton.buttonType = NSButtonTypeSwitch;
+    _enabledButton.state = _enabled ? NSControlStateValueOn : NSControlStateValueOff;
     _shuffleButton.buttonType = NSButtonTypeSwitch;
     _shuffleButton.state = _shuffle ? NSControlStateValueOn : NSControlStateValueOff;
     _autoRotateButton.buttonType = NSButtonTypeSwitch;
@@ -399,7 +435,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 
     NSArray<NSView*>* controlViews = @[
         _previousButton, _nextButton, _presetPopup, _statusLabel,
-        _choosePresetsButton, _chooseTexturesButton, _shuffleButton, _autoRotateButton, _intervalField, _qualityPopup, _fullscreenButton
+        _choosePresetsButton, _chooseTexturesButton, _enabledButton, _shuffleButton, _autoRotateButton, _intervalField, _qualityPopup, _fullscreenButton
     ];
     for (NSView* view in controlViews) {
         [controls addSubview:view];
@@ -424,8 +460,8 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     [NSLayoutConstraint activateConstraints:_visualizerConstraints];
 
     NSDictionary* controlMetrics = @{@"gap": @4};
-    NSDictionary* controlBindings = NSDictionaryOfVariableBindings(_previousButton, _nextButton, _presetPopup, _statusLabel, _choosePresetsButton, _chooseTexturesButton, _shuffleButton, _autoRotateButton, _intervalField, _qualityPopup, _fullscreenButton);
-    [controls addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-gap-[_previousButton(48)]-gap-[_nextButton(48)]-gap-[_presetPopup(120)]-gap-[_statusLabel(60)]-gap-[_choosePresetsButton(68)]-gap-[_chooseTexturesButton(70)]-gap-[_shuffleButton(66)]-gap-[_autoRotateButton(54)]-gap-[_intervalField(38)]-gap-[_qualityPopup(66)]-gap-[_fullscreenButton(46)]" options:NSLayoutFormatAlignAllCenterY metrics:controlMetrics views:controlBindings]];
+    NSDictionary* controlBindings = NSDictionaryOfVariableBindings(_previousButton, _nextButton, _presetPopup, _statusLabel, _choosePresetsButton, _chooseTexturesButton, _enabledButton, _shuffleButton, _autoRotateButton, _intervalField, _qualityPopup, _fullscreenButton);
+    [controls addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-gap-[_previousButton(48)]-gap-[_nextButton(48)]-gap-[_presetPopup(110)]-gap-[_statusLabel(50)]-gap-[_choosePresetsButton(64)]-gap-[_chooseTexturesButton(66)]-gap-[_enabledButton(42)]-gap-[_shuffleButton(62)]-gap-[_autoRotateButton(50)]-gap-[_intervalField(36)]-gap-[_qualityPopup(62)]-gap-[_fullscreenButton(44)]" options:NSLayoutFormatAlignAllCenterY metrics:controlMetrics views:controlBindings]];
     for (NSView* view in controlViews) {
         [controls addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:controls attribute:NSLayoutAttributeCenterY multiplier:1.0 constant:0.0]];
     }
@@ -443,8 +479,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     if (!_audioSink) {
         _audioSink = std::make_unique<ProjectMAudioSinkAdapter>(self);
     }
-    projectm_audio_bridge::instance().add_sink(_audioSink.get());
-    projectm_audio_bridge::instance().start();
+    [self syncRuntimeState];
     [self startRotationTimer];
 }
 
@@ -577,7 +612,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 }
 
 - (void)visualizerRenderTick {
-    if (!_autoRotate || _presets.count == 0) {
+    if (!_enabled || !_autoRotate || _presets.count == 0) {
         return;
     }
     NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
@@ -593,17 +628,42 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 
 - (void)onPreviousPreset:(id)sender {
     (void)sender;
+    if (!_enabled) {
+        _enabledButton.state = NSControlStateValueOn;
+        [self onToggleEnabled:self];
+    }
     [self advancePreset:-1 smooth:NO];
 }
 
 - (void)onNextPreset:(id)sender {
     (void)sender;
+    if (!_enabled) {
+        _enabledButton.state = NSControlStateValueOn;
+        [self onToggleEnabled:self];
+    }
     [self advancePreset:1 smooth:NO];
 }
 
 - (void)onPresetPopup:(id)sender {
     (void)sender;
     [self loadPresetAtIndex:_presetPopup.indexOfSelectedItem smooth:NO];
+}
+
+- (void)syncRuntimeState {
+    [self.projectMView setVisualizerEnabled:_enabled];
+    if (_enabled && _audioSink) {
+        projectm_audio_bridge::instance().add_sink(_audioSink.get());
+        projectm_audio_bridge::instance().start();
+    } else if (_audioSink) {
+        projectm_audio_bridge::instance().remove_sink(_audioSink.get());
+    }
+}
+
+- (void)onToggleEnabled:(id)sender {
+    (void)sender;
+    _enabled = _enabledButton.state == NSControlStateValueOn;
+    [[NSUserDefaults standardUserDefaults] setBool:_enabled forKey:ProjectMEnabledKey];
+    [self syncRuntimeState];
 }
 
 - (void)onToggleShuffle:(id)sender {
@@ -713,6 +773,11 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
         [self onQualityChanged:self];
         return YES;
     }
+    if ([characters isEqualToString:@"v"]) {
+        _enabledButton.state = _enabled ? NSControlStateValueOff : NSControlStateValueOn;
+        [self onToggleEnabled:self];
+        return YES;
+    }
     return NO;
 }
 
@@ -735,6 +800,10 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 
     [menu addItem:[NSMenuItem separatorItem]];
 
+    NSMenuItem* enabledItem = [self menuItemWithTitle:@"Enabled" action:@selector(onMenuToggleEnabled:) key:@""];
+    enabledItem.state = _enabled ? NSControlStateValueOn : NSControlStateValueOff;
+    [menu addItem:enabledItem];
+
     NSMenuItem* shuffleItem = [self menuItemWithTitle:@"Shuffle" action:@selector(onMenuToggleShuffle:) key:@""];
     shuffleItem.state = _shuffle ? NSControlStateValueOn : NSControlStateValueOff;
     [menu addItem:shuffleItem];
@@ -742,6 +811,19 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     NSMenuItem* autoItem = [self menuItemWithTitle:@"Auto Rotate" action:@selector(onMenuToggleAutoRotate:) key:@""];
     autoItem.state = _autoRotate ? NSControlStateValueOn : NSControlStateValueOff;
     [menu addItem:autoItem];
+
+    NSMenu* startupMenu = [[NSMenu alloc] initWithTitle:@"Startup"];
+    NSMenuItem* manualItem = [self menuItemWithTitle:@"Manual" action:@selector(onStartupModeMenuItem:) key:@""];
+    manualItem.tag = 0;
+    manualItem.state = _startAtStartup ? NSControlStateValueOff : NSControlStateValueOn;
+    [startupMenu addItem:manualItem];
+    NSMenuItem* startupItem = [self menuItemWithTitle:@"Start at Startup" action:@selector(onStartupModeMenuItem:) key:@""];
+    startupItem.tag = 1;
+    startupItem.state = _startAtStartup ? NSControlStateValueOn : NSControlStateValueOff;
+    [startupMenu addItem:startupItem];
+    NSMenuItem* startupRoot = [[NSMenuItem alloc] initWithTitle:@"Startup Behavior" action:nil keyEquivalent:@""];
+    startupRoot.submenu = startupMenu;
+    [menu addItem:startupRoot];
 
     NSMenu* intervalMenu = [[NSMenu alloc] initWithTitle:@"Interval"];
     for (NSNumber* value in @[@5, @10, @30, @60]) {
@@ -782,6 +864,18 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     (void)sender;
     _shuffleButton.state = _shuffle ? NSControlStateValueOff : NSControlStateValueOn;
     [self onToggleShuffle:self];
+}
+
+- (void)onMenuToggleEnabled:(id)sender {
+    (void)sender;
+    _enabledButton.state = _enabled ? NSControlStateValueOff : NSControlStateValueOn;
+    [self onToggleEnabled:self];
+}
+
+- (void)onStartupModeMenuItem:(id)sender {
+    NSMenuItem* item = (NSMenuItem*)sender;
+    _startAtStartup = item.tag == 1;
+    [[NSUserDefaults standardUserDefaults] setBool:_startAtStartup forKey:ProjectMStartAtStartupKey];
 }
 
 - (void)onMenuToggleAutoRotate:(id)sender {

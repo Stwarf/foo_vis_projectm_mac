@@ -9,6 +9,8 @@ Default UI element.
 - foobar2000 PCM playback capture for audio-reactive visuals.
 - Preset folder and texture folder selection.
 - Previous/next preset controls.
+- Idle-by-default mode so projectM does not consume CPU/GPU until enabled.
+- Startup behavior preference: manual startup or start automatically.
 - Shuffle and auto-rotation.
 - Optional static mode with auto-rotation disabled.
 - Smooth auto preset transitions.
@@ -29,6 +31,7 @@ Click the visualizer first so it has keyboard focus, then use:
 | `S` | Toggle shuffle |
 | `A` | Toggle auto-rotation |
 | `Q` | Cycle quality mode |
+| `V` | Toggle visualizer on/off |
 
 ## Install
 
@@ -51,6 +54,21 @@ Restart foobar2000 after installing or replacing the component.
 The release component is self-contained and includes the projectM runtime
 library. Users do not need Xcode, the foobar2000 SDK or projectM source code to
 install it.
+
+## Startup and Resource Use
+
+The visualizer defaults to manual startup. In this mode the component stays idle
+until you turn it on with the `On` switch, the right-click menu, or the `V`
+keyboard shortcut.
+
+To change this behavior, open foobar2000 Preferences and go to:
+
+```text
+Display > Visualisations > projectM Visualisation
+```
+
+There you can choose whether projectM starts automatically when foobar2000
+starts.
 
 ## Presets
 

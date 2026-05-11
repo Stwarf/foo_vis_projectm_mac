@@ -31,6 +31,7 @@ COMMON_FLAGS="
 "
 
 clang++ $COMMON_FLAGS -x objective-c++ -c "$ROOT/src/projectm_view.mm" -o "$BUILD_DIR/obj/projectm_view.o"
+clang++ $COMMON_FLAGS -x objective-c++ -c "$ROOT/src/preferences_mac.mm" -o "$BUILD_DIR/obj/preferences_mac.o"
 clang++ $COMMON_FLAGS -x objective-c++ -c "$ROOT/src/ui_element_mac.mm" -o "$BUILD_DIR/obj/ui_element_mac.o"
 clang++ $COMMON_FLAGS -x c++ -c "$ROOT/src/projectm_audio_bridge.cpp" -o "$BUILD_DIR/obj/projectm_audio_bridge.o"
 clang++ $COMMON_FLAGS -x c++ -c "$ROOT/src/main.cpp" -o "$BUILD_DIR/obj/main.o"
@@ -43,6 +44,7 @@ clang++ \
   -o "$BIN" \
   "$BUILD_DIR/obj/main.o" \
   "$BUILD_DIR/obj/projectm_audio_bridge.o" \
+  "$BUILD_DIR/obj/preferences_mac.o" \
   "$BUILD_DIR/obj/projectm_view.o" \
   "$BUILD_DIR/obj/ui_element_mac.o" \
   -L"$SDK_PRODUCTS" \
