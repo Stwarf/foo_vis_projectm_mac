@@ -1,0 +1,2 @@
+#define FOOBAR2000_MAC_CLASS_SUFFIX _foo_vis_projectm_mac
+
