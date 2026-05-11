@@ -30,16 +30,44 @@ Click the visualizer first so it has keyboard focus, then use:
 | `A` | Toggle auto-rotation |
 | `Q` | Cycle quality mode |
 
-## Requirements
+## Install
 
 - macOS 11 or newer.
-- Apple Silicon Mac. The current build script produces an arm64-only bundle.
-- Xcode with command line tools selected.
+- Apple Silicon Mac. The current release is arm64-only.
 - foobar2000 for macOS v2.
+
+Download the latest release zip, unzip it, then copy
+`foo_vis_projectm_mac.component` into foobar2000's user components folder:
+
+```sh
+mkdir -p "$HOME/Library/foobar2000-v2/user-components"
+rm -rf "$HOME/Library/foobar2000-v2/user-components/foo_vis_projectm_mac.component"
+cp -R foo_vis_projectm_mac.component \
+  "$HOME/Library/foobar2000-v2/user-components/"
+```
+
+Restart foobar2000 after installing or replacing the component.
+
+The release component is self-contained and includes the projectM runtime
+library. Users do not need Xcode, the foobar2000 SDK or projectM source code to
+install it.
+
+## Presets
+
+Presets are not bundled. Use the component's `Presets` button or right-click
+menu to choose a folder containing `.milk` or `.prjm` files.
+
+Texture packs are also not bundled. If a preset pack needs textures, use the
+`Textures` button or right-click menu to choose the texture folder.
+
+## Build From Source
+
+Build requirements:
+
+- Xcode or Apple Command Line Tools.
+- `xcode-select` configured to an installed developer directory.
 - foobar2000 SDK built in Release configuration.
 - libprojectM 4 built and installed locally.
-
-## Expected Local Layout
 
 The current build script expects this repository to sit next to the SDK and the
 projectM install prefix:
@@ -58,8 +86,6 @@ include/projectM-4/projectM.h
 lib/libprojectM-4.4.dylib
 ```
 
-## Build
-
 First build the foobar2000 SDK sample workspace in Release mode so the required
 static libraries exist in Xcode DerivedData. Then run:
 
@@ -72,23 +98,6 @@ The output bundle is:
 ```text
 build/Release/foo_vis_projectm_mac.component
 ```
-
-## Install
-
-Copy the built component into foobar2000's user components folder:
-
-```sh
-rm -rf "$HOME/Library/foobar2000-v2/user-components/foo_vis_projectm_mac.component"
-cp -R build/Release/foo_vis_projectm_mac.component \
-  "$HOME/Library/foobar2000-v2/user-components/"
-```
-
-Restart foobar2000 after replacing the component.
-
-## Presets
-
-Presets are not bundled. Use the component's `Presets` button or right-click
-menu to choose a folder containing `.milk` or `.prjm` files.
 
 ## Third-Party Code
 
