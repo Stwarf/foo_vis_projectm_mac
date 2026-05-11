@@ -13,15 +13,22 @@ Default UI element.
 - Optional static mode with auto-rotation disabled.
 - Smooth auto preset transitions.
 - Fullscreen mode using the same active visualizer instance.
-- Keyboard shortcuts:
-  - `F` or `Esc`: enter/exit fullscreen
-  - `Right Arrow` or `N`: next preset
-  - `Left Arrow` or `P`: previous preset
-  - `S`: toggle shuffle
-  - `A`: toggle auto-rotation
-  - `Q`: cycle quality
 - Right-click context menu on the visualizer.
 - Quality modes for slower Macs: Low, Medium, High, Ultra.
+
+## Keyboard Shortcuts
+
+Click the visualizer first so it has keyboard focus, then use:
+
+| Shortcut | Action |
+| --- | --- |
+| `F` | Enter or exit fullscreen |
+| `Esc` | Exit fullscreen |
+| `Right Arrow` or `N` | Next preset |
+| `Left Arrow` or `P` | Previous preset |
+| `S` | Toggle shuffle |
+| `A` | Toggle auto-rotation |
+| `Q` | Cycle quality mode |
 
 ## Requirements
 
