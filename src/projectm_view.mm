@@ -14,7 +14,6 @@ static NSString* const ProjectMShuffleKey = @"foo_vis_projectm_mac.shuffle";
 static NSString* const ProjectMAutoRotateKey = @"foo_vis_projectm_mac.autoRotate";
 static NSString* const ProjectMRotationIntervalKey = @"foo_vis_projectm_mac.rotationInterval";
 static NSString* const ProjectMQualityKey = @"foo_vis_projectm_mac.quality";
-static NSString* const ProjectMEnabledKey = @"foo_vis_projectm_mac.enabled";
 static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startAtStartup";
 
 @interface ProjectMViewController (ProjectMPrivate)
@@ -68,6 +67,10 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 
 - (void)mouseDown:(NSEvent*)event {
     [self.window makeFirstResponder:self];
+    if (event.clickCount == 2) {
+        [self.controller onFullscreen:self];
+        return;
+    }
     [super mouseDown:event];
 }
 
@@ -88,6 +91,8 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 @property(nonatomic, weak) ProjectMViewController* controller;
 - (void)setProjectMQualityLevel:(NSInteger)qualityLevel;
 - (void)setVisualizerEnabled:(BOOL)enabled;
+- (void)createProjectMIfNeeded;
+- (void)destroyProjectM;
 - (void)applyQualitySettings;
 @end
 
@@ -146,6 +151,15 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     [self.controller showContextMenuForEvent:event view:self];
 }
 
+- (void)mouseDown:(NSEvent*)event {
+    [self.window makeFirstResponder:self];
+    if (event.clickCount == 2) {
+        [self.controller onFullscreen:self];
+        return;
+    }
+    [super mouseDown:event];
+}
+
 - (instancetype)initWithFrame:(NSRect)frameRect {
     NSOpenGLPixelFormatAttribute attrs[] = {
         NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core,
@@ -167,22 +181,8 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     GLint swapInterval = 1;
     [[self openGLContext] setValues:&swapInterval forParameter:NSOpenGLContextParameterSwapInterval];
 
-    self.projectM = projectm_create();
-    if (self.projectM != nullptr) {
-        [self applyQualitySettings];
-        projectm_set_aspect_correction(self.projectM, true);
-        projectm_set_preset_duration(self.projectM, 30.0);
-        projectm_set_soft_cut_duration(self.projectM, 5.0);
-        projectm_set_hard_cut_enabled(self.projectM, true);
-        projectm_set_hard_cut_duration(self.projectM, 12.0);
-        if (self.pendingTextureDirectory.length > 0) {
-            [self setTextureDirectory:self.pendingTextureDirectory];
-        }
-        projectm_load_preset_file(self.projectM, "idle://", false);
-        if (self.pendingPresetPath.length > 0) {
-            [self loadPresetPath:self.pendingPresetPath smooth:NO];
-        }
-        self.projectMReady = YES;
+    if (self.visualizerEnabled) {
+        [self createProjectMIfNeeded];
     }
 
     CVDisplayLinkCreateWithActiveCGDisplays(&_displayLink);
@@ -212,6 +212,9 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 
 - (void)setVisualizerEnabled:(BOOL)enabled {
     _visualizerEnabled = enabled;
+    if (enabled) {
+        [self createProjectMIfNeeded];
+    }
     if (_displayLink != nullptr) {
         if (enabled && !CVDisplayLinkIsRunning(_displayLink)) {
             CVDisplayLinkStart(_displayLink);
@@ -219,7 +222,55 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
             CVDisplayLinkStop(_displayLink);
         }
     }
+    if (!enabled) {
+        [self destroyProjectM];
+    }
     [self setNeedsDisplay:YES];
+}
+
+- (void)createProjectMIfNeeded {
+    if (self.projectM != nullptr) {
+        return;
+    }
+
+    [[self openGLContext] makeCurrentContext];
+    self.projectM = projectm_create();
+    if (self.projectM == nullptr) {
+        self.projectMReady = NO;
+        return;
+    }
+
+    [self applyQualitySettings];
+    projectm_set_aspect_correction(self.projectM, true);
+    projectm_set_preset_duration(self.projectM, 30.0);
+    projectm_set_soft_cut_duration(self.projectM, 5.0);
+    projectm_set_hard_cut_enabled(self.projectM, true);
+    projectm_set_hard_cut_duration(self.projectM, 12.0);
+    if (self.pendingTextureDirectory.length > 0) {
+        [self setTextureDirectory:self.pendingTextureDirectory];
+    }
+    projectm_load_preset_file(self.projectM, "idle://", false);
+    if (self.pendingPresetPath.length > 0) {
+        [self loadPresetPath:self.pendingPresetPath smooth:NO];
+    }
+    self.projectMReady = YES;
+}
+
+- (void)destroyProjectM {
+    {
+        std::lock_guard<std::mutex> lock(_audioMutex);
+        _pendingSamples.clear();
+        _pendingSamples.shrink_to_fit();
+    }
+
+    if (self.projectM != nullptr) {
+        [[self openGLContext] makeCurrentContext];
+        projectm_destroy(self.projectM);
+        self.projectM = nullptr;
+    }
+    self.projectMReady = NO;
+    [[self openGLContext] clearDrawable];
+    [NSOpenGLContext clearCurrentContext];
 }
 
 - (void)applyQualitySettings {
@@ -228,36 +279,31 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     }
 
     NSRect bounds = [self convertRectToBacking:self.bounds];
-    double renderScale = 1.0;
     size_t meshWidth = 64;
     size_t meshHeight = 48;
 
     switch (self.qualityLevel) {
         case 0:
-            renderScale = 0.50;
-            meshWidth = 32;
-            meshHeight = 24;
+            meshWidth = 24;
+            meshHeight = 18;
             break;
         case 1:
-            renderScale = 0.75;
-            meshWidth = 48;
-            meshHeight = 36;
+            meshWidth = 40;
+            meshHeight = 30;
             break;
         case 3:
-            renderScale = 1.0;
             meshWidth = 96;
             meshHeight = 72;
             break;
         case 2:
         default:
-            renderScale = 1.0;
             meshWidth = 64;
             meshHeight = 48;
             break;
     }
 
-    const double width = MAX(320.0, bounds.size.width * renderScale);
-    const double height = MAX(180.0, bounds.size.height * renderScale);
+    const double width = MAX(1.0, bounds.size.width);
+    const double height = MAX(1.0, bounds.size.height);
     projectm_set_window_size(self.projectM, width, height);
     projectm_set_mesh_size(self.projectM, meshWidth, meshHeight);
 }
@@ -270,6 +316,11 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
     } else if (self.projectMReady) {
+        NSRect bounds = [self convertRectToBacking:self.bounds];
+        glViewport(0, 0, bounds.size.width, bounds.size.height);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
         std::vector<float> samples;
         {
             std::lock_guard<std::mutex> lock(_audioMutex);
@@ -369,7 +420,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     _shuffle = [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMShuffleKey];
     _autoRotate = [[NSUserDefaults standardUserDefaults] objectForKey:ProjectMAutoRotateKey] == nil ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMAutoRotateKey];
     _startAtStartup = [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMStartAtStartupKey];
-    _enabled = _startAtStartup ? ([[NSUserDefaults standardUserDefaults] objectForKey:ProjectMEnabledKey] == nil ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMEnabledKey]) : NO;
+    _enabled = _startAtStartup;
     _qualityLevel = [[NSUserDefaults standardUserDefaults] objectForKey:ProjectMQualityKey] == nil ? 2 : [[NSUserDefaults standardUserDefaults] integerForKey:ProjectMQualityKey];
     _qualityLevel = MAX(0, MIN(3, _qualityLevel));
     _lastPresetSwitch = [NSDate timeIntervalSinceReferenceDate];
@@ -662,7 +713,6 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 - (void)onToggleEnabled:(id)sender {
     (void)sender;
     _enabled = _enabledButton.state == NSControlStateValueOn;
-    [[NSUserDefaults standardUserDefaults] setBool:_enabled forKey:ProjectMEnabledKey];
     [self syncRuntimeState];
 }
 

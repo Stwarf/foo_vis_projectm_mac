@@ -81,9 +81,9 @@ cat > "$BUNDLE/Contents/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>BNDL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0</string>
+  <string>1.2.0</string>
   <key>CFBundleVersion</key>
-  <string>1.0.0</string>
+  <string>1.2.0</string>
 </dict>
 </plist>
 PLIST

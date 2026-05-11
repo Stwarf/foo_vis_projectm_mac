@@ -1,6 +1,5 @@
 #import "stdafx.h"
 
-static NSString* const ProjectMEnabledKey = @"foo_vis_projectm_mac.enabled";
 static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startAtStartup";
 
 @interface ProjectMPreferencesViewController : NSViewController
@@ -8,12 +7,11 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 
 @implementation ProjectMPreferencesViewController {
     NSButton* _startAtStartupButton;
-    NSButton* _enabledButton;
 }
 
 - (void)loadView {
-    NSView* root = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 420, 150)];
-    root.translatesAutoresizingMaskIntoConstraints = NO;
+    NSView* root = [[NSView alloc] initWithFrame:NSZeroRect];
+    root.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
     NSTextField* title = [NSTextField labelWithString:@"projectM Visualisation"];
     title.font = [NSFont boldSystemFontOfSize:14.0];
@@ -23,11 +21,7 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
     _startAtStartupButton.translatesAutoresizingMaskIntoConstraints = NO;
     _startAtStartupButton.state = [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMStartAtStartupKey] ? NSControlStateValueOn : NSControlStateValueOff;
 
-    _enabledButton = [NSButton checkboxWithTitle:@"Default to enabled when automatic startup is on" target:self action:@selector(onEnabled:)];
-    _enabledButton.translatesAutoresizingMaskIntoConstraints = NO;
-    _enabledButton.state = [[NSUserDefaults standardUserDefaults] objectForKey:ProjectMEnabledKey] == nil || [[NSUserDefaults standardUserDefaults] boolForKey:ProjectMEnabledKey] ? NSControlStateValueOn : NSControlStateValueOff;
-
-    NSTextField* note = [NSTextField labelWithString:@"Manual startup keeps the component idle until you turn it on from the toolbar or right-click menu."];
+    NSTextField* note = [NSTextField labelWithString:@"When this is off, projectM stays idle until you turn it on from the toolbar, right-click menu, or V shortcut."];
     note.font = [NSFont systemFontOfSize:11.0];
     note.textColor = NSColor.secondaryLabelColor;
     note.lineBreakMode = NSLineBreakByWordWrapping;
@@ -36,15 +30,22 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 
     [root addSubview:title];
     [root addSubview:_startAtStartupButton];
-    [root addSubview:_enabledButton];
     [root addSubview:note];
 
-    NSDictionary* views = NSDictionaryOfVariableBindings(title, _startAtStartupButton, _enabledButton, note);
-    [root addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-20-[title]-20-|" options:0 metrics:nil views:views]];
-    [root addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-20-[_startAtStartupButton]-20-|" options:0 metrics:nil views:views]];
-    [root addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-20-[_enabledButton]-20-|" options:0 metrics:nil views:views]];
-    [root addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-20-[note]-20-|" options:0 metrics:nil views:views]];
-    [root addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-20-[title]-16-[_startAtStartupButton]-8-[_enabledButton]-14-[note]" options:0 metrics:nil views:views]];
+    [NSLayoutConstraint activateConstraints:@[
+        [title.leadingAnchor constraintEqualToAnchor:root.leadingAnchor constant:24.0],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:root.trailingAnchor constant:-24.0],
+        [title.topAnchor constraintEqualToAnchor:root.topAnchor constant:24.0],
+
+        [_startAtStartupButton.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [_startAtStartupButton.trailingAnchor constraintLessThanOrEqualToAnchor:root.trailingAnchor constant:-24.0],
+        [_startAtStartupButton.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:18.0],
+
+        [note.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [note.trailingAnchor constraintLessThanOrEqualToAnchor:root.trailingAnchor constant:-24.0],
+        [note.topAnchor constraintEqualToAnchor:_startAtStartupButton.bottomAnchor constant:16.0],
+        [note.widthAnchor constraintLessThanOrEqualToConstant:620.0]
+    ]];
 
     self.view = root;
 }
@@ -52,11 +53,6 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 - (void)onStartAtStartup:(id)sender {
     (void)sender;
     [[NSUserDefaults standardUserDefaults] setBool:_startAtStartupButton.state == NSControlStateValueOn forKey:ProjectMStartAtStartupKey];
-}
-
-- (void)onEnabled:(id)sender {
-    (void)sender;
-    [[NSUserDefaults standardUserDefaults] setBool:_enabledButton.state == NSControlStateValueOn forKey:ProjectMEnabledKey];
 }
 
 @end

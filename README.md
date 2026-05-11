@@ -9,14 +9,41 @@ Default UI element.
 - foobar2000 PCM playback capture for audio-reactive visuals.
 - Preset folder and texture folder selection.
 - Previous/next preset controls.
-- Idle-by-default mode so projectM does not consume CPU/GPU until enabled.
+- Manual startup mode so projectM does not consume CPU/GPU until enabled.
 - Startup behavior preference: manual startup or start automatically.
+- Runtime `On` switch to enable/disable rendering and audio capture.
 - Shuffle and auto-rotation.
 - Optional static mode with auto-rotation disabled.
 - Smooth auto preset transitions.
 - Fullscreen mode using the same active visualizer instance.
+- Double-click the visualizer to enter or exit fullscreen.
 - Right-click context menu on the visualizer.
-- Quality modes for slower Macs: Low, Medium, High, Ultra.
+- Quality modes for slower Macs: Low, Medium, High, Ultra. Quality changes mesh
+  complexity while keeping the visualizer scaled to the full pane.
+
+## Using In A Layout
+
+After installing and restarting foobar2000, add the element named
+`projectM Visualisation` to your Default UI layout.
+
+Example layout snippet:
+
+```text
+splitter horizontal style=thin
+ splitter vertical style=thin
+  tabs position=top
+   playlist-picker tab-name="Playlists"
+   albumlist tab-name="Library"
+   projectM Visualisation tab-name="Visualizer"
+  playlist
+ playback-controls
+```
+
+You can also use the short element name:
+
+```text
+projectM tab-name="Visualizer"
+```
 
 ## Keyboard Shortcuts
 
@@ -26,6 +53,7 @@ Click the visualizer first so it has keyboard focus, then use:
 | --- | --- |
 | `F` | Enter or exit fullscreen |
 | `Esc` | Exit fullscreen |
+| Double-click | Enter or exit fullscreen |
 | `Right Arrow` or `N` | Next preset |
 | `Left Arrow` or `P` | Previous preset |
 | `S` | Toggle shuffle |
@@ -69,6 +97,10 @@ Display > Visualisations > projectM Visualisation
 
 There you can choose whether projectM starts automatically when foobar2000
 starts.
+
+Turning the visualizer off stops audio capture, stops the display link and
+destroys the active projectM instance. Turning it back on recreates projectM and
+reloads the saved preset/texture state.
 
 ## Presets
 
