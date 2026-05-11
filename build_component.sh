@@ -79,9 +79,9 @@ cat > "$BUNDLE/Contents/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>BNDL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>1.0.0</string>
   <key>CFBundleVersion</key>
-  <string>0.1.0</string>
+  <string>1.0.0</string>
 </dict>
 </plist>
 PLIST
@@ -90,4 +90,3 @@ codesign --force --sign - "$FRAMEWORKS/libprojectM-4.4.dylib"
 codesign --force --sign - "$BUNDLE"
 
 echo "$BUNDLE"
-

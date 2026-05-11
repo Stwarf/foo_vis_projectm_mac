@@ -2,7 +2,7 @@
 
 DECLARE_COMPONENT_VERSION(
     "projectM Visualisation",
-    "0.1.0",
+    "1.0.0",
     "Native macOS foobar2000 component using libprojectM 4."
 );
 
