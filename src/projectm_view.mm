@@ -25,6 +25,7 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 - (void)onToggleAutoRotate:(id)sender;
 - (void)onToggleEnabled:(id)sender;
 - (void)onFullscreen:(id)sender;
+- (void)onFullscreenMouseActivity;
 - (BOOL)handleProjectMKeyEvent:(NSEvent*)event;
 - (void)showContextMenuForEvent:(NSEvent*)event view:(NSView*)view;
 - (void)syncRuntimeState;
@@ -35,6 +36,8 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 - (void)onQualityMenuItem:(id)sender;
 - (void)onIntervalMenuItem:(id)sender;
 - (void)restoreVisualizerFromFullscreen;
+- (void)hideFullscreenCursor;
+- (void)restoreFullscreenCursor;
 @end
 
 @interface ProjectMFullscreenWindow : NSWindow
@@ -67,6 +70,7 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 
 - (void)mouseDown:(NSEvent*)event {
     [self.window makeFirstResponder:self];
+    [self.controller onFullscreenMouseActivity];
     if (event.clickCount == 2) {
         [self.controller onFullscreen:self];
         return;
@@ -76,7 +80,13 @@ static NSString* const ProjectMStartAtStartupKey = @"foo_vis_projectm_mac.startA
 
 - (void)rightMouseDown:(NSEvent*)event {
     [self.window makeFirstResponder:self];
+    [self.controller onFullscreenMouseActivity];
     [self.controller showContextMenuForEvent:event view:self];
+}
+
+- (void)mouseMoved:(NSEvent*)event {
+    (void)event;
+    [self.controller onFullscreenMouseActivity];
 }
 @end
 
@@ -148,16 +158,23 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 
 - (void)rightMouseDown:(NSEvent*)event {
     [self.window makeFirstResponder:self];
+    [self.controller onFullscreenMouseActivity];
     [self.controller showContextMenuForEvent:event view:self];
 }
 
 - (void)mouseDown:(NSEvent*)event {
     [self.window makeFirstResponder:self];
+    [self.controller onFullscreenMouseActivity];
     if (event.clickCount == 2) {
         [self.controller onFullscreen:self];
         return;
     }
     [super mouseDown:event];
+}
+
+- (void)mouseMoved:(NSEvent*)event {
+    (void)event;
+    [self.controller onFullscreenMouseActivity];
 }
 
 - (instancetype)initWithFrame:(NSRect)frameRect {
@@ -412,6 +429,8 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     NSTextField* _statusLabel;
     NSWindow* _fullscreenWindow;
     NSApplicationPresentationOptions _previousPresentationOptions;
+    NSTimer* _cursorHideTimer;
+    BOOL _fullscreenCursorHidden;
 }
 
 - (void)loadView {
@@ -777,6 +796,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
                                 NSWindowCollectionBehaviorStationary |
                                 NSWindowCollectionBehaviorIgnoresCycle;
     window.contentView = contentView;
+    window.acceptsMouseMovedEvents = YES;
     window.releasedWhenClosed = NO;
     _fullscreenWindow = window;
 
@@ -792,6 +812,28 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     [window makeKeyAndOrderFront:nil];
     [window makeFirstResponder:contentView];
     [window orderFrontRegardless];
+    [self onFullscreenMouseActivity];
+}
+
+- (void)onFullscreenMouseActivity {
+    if (_fullscreenWindow == nil) {
+        return;
+    }
+    if (_fullscreenCursorHidden) {
+        [NSCursor unhide];
+        _fullscreenCursorHidden = NO;
+    }
+    [_cursorHideTimer invalidate];
+    _cursorHideTimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(hideFullscreenCursor) userInfo:nil repeats:NO];
+}
+
+- (void)hideFullscreenCursor {
+    [_cursorHideTimer invalidate];
+    _cursorHideTimer = nil;
+    if (_fullscreenWindow != nil && !_fullscreenCursorHidden) {
+        [NSCursor hide];
+        _fullscreenCursorHidden = YES;
+    }
 }
 
 - (BOOL)handleProjectMKeyEvent:(NSEvent*)event {
@@ -947,6 +989,7 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
 }
 
 - (void)restoreVisualizerFromFullscreen {
+    [self restoreFullscreenCursor];
     if (_projectMView.superview == _visualizerContainer) {
         _fullscreenWindow = nil;
         return;
@@ -959,6 +1002,15 @@ static CVReturn ProjectMDisplayLinkCallback(CVDisplayLinkRef,
     [NSLayoutConstraint activateConstraints:_visualizerConstraints];
     NSApp.presentationOptions = _previousPresentationOptions;
     _fullscreenWindow = nil;
+}
+
+- (void)restoreFullscreenCursor {
+    [_cursorHideTimer invalidate];
+    _cursorHideTimer = nil;
+    if (_fullscreenCursorHidden) {
+        [NSCursor unhide];
+        _fullscreenCursorHidden = NO;
+    }
 }
 
 - (void)closeFullscreen {

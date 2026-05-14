@@ -17,6 +17,7 @@ Default UI element.
 - Smooth auto preset transitions.
 - Fullscreen mode using the same active visualizer instance.
 - Double-click the visualizer to enter or exit fullscreen.
+- Cursor auto-hides after 2 seconds of inactivity in fullscreen.
 - Right-click context menu on the visualizer.
 - Quality modes for slower Macs: Low, Medium, High, Ultra. Quality changes mesh
   complexity while keeping the visualizer scaled to the full pane.
