@@ -111,6 +111,14 @@ menu to choose a folder containing `.milk` or `.prjm` files.
 Texture packs are also not bundled. If a preset pack needs textures, use the
 `Textures` button or right-click menu to choose the texture folder.
 
+Useful projectM preset and texture packs:
+
+- [MilkDrop Texture Pack](https://github.com/projectM-visualizer/presets-milkdrop-texture-pack)
+- [Cream of the Crop Presets](https://github.com/projectM-visualizer/presets-cream-of-the-crop)
+- [Classic projectM Presets](https://github.com/projectM-visualizer/presets-projectm-classic)
+- [Original MilkDrop Presets](https://github.com/projectM-visualizer/presets-milkdrop-original)
+- [Eo.S. + Phat / EN-D Presets](https://github.com/projectM-visualizer/presets-en-d)
+
 ## Build From Source
 
 Build requirements:
