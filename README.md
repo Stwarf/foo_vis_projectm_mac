@@ -68,8 +68,18 @@ Click the visualizer first so it has keyboard focus, then use:
 - Apple Silicon Mac. The current release is arm64-only.
 - foobar2000 for macOS v2.
 
-Download the latest release zip, unzip it, then copy
-`foo_vis_projectm_mac.component` into foobar2000's user components folder:
+Download
+[`foo_vis_projectm_mac-1.2.1-macos-arm64.fb2k-component`](https://github.com/Stwarf/foo_vis_projectm_mac/releases/download/v1.2.1/foo_vis_projectm_mac-1.2.1-macos-arm64.fb2k-component)
+from the latest release. Do not use GitHub's automatically generated
+`Source code (zip)` download; that archive contains the source project, not the
+installable component.
+
+Install the downloaded `.fb2k-component` from foobar2000 under
+`Preferences > Components`, or double-click it in Finder. Restart foobar2000
+when prompted.
+
+For a manual installation, open the `.fb2k-component` file as a ZIP archive and
+copy `foo_vis_projectm_mac.component` into foobar2000's user components folder:
 
 ```sh
 mkdir -p "$HOME/Library/foobar2000-v2/user-components"

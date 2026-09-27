@@ -8,6 +8,8 @@ PROJECTM_PREFIX="$WORKSPACE_ROOT/projectm-install"
 SDK_PRODUCTS="$HOME/Library/Developer/Xcode/DerivedData/foo_sample-fwcgerucbrsoscfuxwoujesstxpl/Build/Products/Release"
 BUILD_DIR="$ROOT/build"
 BUNDLE="$BUILD_DIR/Release/foo_vis_projectm_mac.component"
+VERSION="1.2.1"
+PACKAGE="$BUILD_DIR/Release/foo_vis_projectm_mac-$VERSION-macos-arm64.fb2k-component"
 BIN="$BUNDLE/Contents/MacOS/foo_vis_projectm_mac"
 FRAMEWORKS="$BUNDLE/Contents/Frameworks"
 
@@ -91,4 +93,8 @@ PLIST
 codesign --force --sign - "$FRAMEWORKS/libprojectM-4.4.dylib"
 codesign --force --sign - "$BUNDLE"
 
+rm -f "$PACKAGE"
+ditto -c -k --sequesterRsrc --keepParent "$BUNDLE" "$PACKAGE"
+
 echo "$BUNDLE"
+echo "$PACKAGE"
