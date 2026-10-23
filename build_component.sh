@@ -86,6 +86,15 @@ cat > "$BUNDLE/Contents/Info.plist" <<'PLIST'
   <string>1.2.1</string>
   <key>CFBundleVersion</key>
   <string>1.2.1</string>
+  <key>FB2KUpdateSource</key>
+  <dict>
+    <key>source</key>
+    <string>github</string>
+    <key>owner</key>
+    <string>Stwarf</string>
+    <key>repo</key>
+    <string>foo_vis_projectm_mac</string>
+  </dict>
 </dict>
 </plist>
 PLIST
